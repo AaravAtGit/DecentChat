@@ -1,0 +1,33 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --discord-dark: #1a1b1e;
+  --discord-sidebar: #232428;
+  --discord-channel: #2b2d31;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background-color: var(--discord-dark);
+}
+
+/* Smooth scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--discord-sidebar);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--discord-channel);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #4a4d52;
+}
