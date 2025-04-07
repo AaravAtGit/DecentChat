@@ -9,17 +9,46 @@ const gun = Gun({
   multicast: false,
   peers: ['http://localhost:8765/gun'],
   axe: false,
-  multicast: false,
-  localStorage: false
+  localStorage: false,
+  radisk: true,
+  timeout: 30000
 });
 
-// Create shared space for messages
+// Create shared spaces
 const messageSpace = gun.get('messages');
 messageSpace.put({ initialized: true });
 
-// Create shared space for users
 const userSpace = gun.get('users');
 userSpace.put({ initialized: true });
+
+const channelSpace = gun.get('channels');
+channelSpace.put({ initialized: true });
+
+const presenceSpace = gun.get('presence');
+presenceSpace.put({ initialized: true });
+
+// Initialize default channel
+channelSpace.get('general').put({
+  name: 'general',
+  createdBy: 'system',
+  timestamp: Date.now()
+});
+
+// Clean up stale presence data periodically
+setInterval(() => {
+  presenceSpace.map().once((data, userId) => {
+    if (data && data.lastSeen) {
+      const lastSeen = data.lastSeen;
+      const now = Date.now();
+      if (now - lastSeen > 60000) {
+        presenceSpace.get(userId).put({
+          online: false,
+          lastSeen: now
+        });
+      }
+    }
+  });
+}, 30000);
 
 // Log connected peers
 gun.on('hi', peer => {
