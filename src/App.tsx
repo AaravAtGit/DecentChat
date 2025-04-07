@@ -73,6 +73,11 @@ interface MessageData {
   channel: string;
 }
 
+interface OnlineUser {
+  username: string;
+  profilePicture?: string;
+}
+
 // const ipfs = create({
 //   host: 'ipfs.io',
 //   port: 443,
@@ -118,12 +123,10 @@ function App() {
   const [password, setPassword] = useState('');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loginError, setLoginError] = useState('');
-  const [onlineUsers, setOnlineUsers] = useState(new Set<string>());
+  const [onlineUsers, setOnlineUsers] = useState<Map<string, OnlineUser>>(new Map());
   const [showSettings, setShowSettings] = useState(false);
   const [profilePicture, setProfilePicture] = useState('');
-  const [displayName, setDisplayName] = useState('');
   const [settingsForm, setSettingsForm] = useState({
-    displayName: '',
     profilePicture: ''
   });
   const [channels, setChannels] = useState(['general']);
@@ -133,12 +136,12 @@ function App() {
   const [mediaFile, setMediaFile] = useState<File | null>(null);
   const mediaInputRef = useRef<HTMLInputElement>(null);
   const [enlargedImage, setEnlargedImage] = useState<string | null>(null);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const newChannelInputRef = useRef<HTMLInputElement>(null);
-  const displayNameInputRef = useRef<HTMLInputElement>(null);
 
   const messagesRef = gun.get('messages');
   const channelsRef = gun.get('channels');
@@ -178,9 +181,9 @@ function App() {
   }, [showNewChannelModal]);
 
   useEffect(() => {
-    if (showSettings && displayNameInputRef.current) {
+    if (showSettings && fileInputRef.current) {
       setTimeout(() => {
-        displayNameInputRef.current?.focus();
+        fileInputRef.current?.focus();
       }, 100);
     }
   }, [showSettings]);
@@ -209,10 +212,20 @@ function App() {
       const isRecent = Date.now() - lastSeen < 30000;
 
       if (data.online && isRecent) {
-        setOnlineUsers(prev => new Set([...prev, userId]));
+        // Get user profile picture
+        gun.get('users').get(userId).once((userData) => {
+          setOnlineUsers(prev => {
+            const next = new Map(prev);
+            next.set(userId, {
+              username: userId,
+              profilePicture: userData?.profilePicture || `https://api.dicebear.com/9.x/thumbs/svg?seed=${userId}`
+            });
+            return next;
+          });
+        });
       } else {
         setOnlineUsers(prev => {
-          const next = new Set(prev);
+          const next = new Map(prev);
           next.delete(userId);
           return next;
         });
@@ -252,26 +265,18 @@ function App() {
       
       const profileListener = userProfile.on((data) => {
         if (data) {
-          const newDisplayName = data.displayName || username;
           const newProfilePic = data.profilePicture || `https://api.dicebear.com/9.x/thumbs/svg?seed=${username}`;
-          
-          setDisplayName(newDisplayName);
           setProfilePicture(newProfilePic);
           if (showSettings) {
             setSettingsForm({
-              displayName: newDisplayName,
               profilePicture: newProfilePic
             });
           }
         } else {
-          const defaultValues = {
-            displayName: username,
-            profilePicture: `https://api.dicebear.com/9.x/thumbs/svg?seed=${username}`
-          };
-          setDisplayName(username);
-          setProfilePicture(defaultValues.profilePicture);
+          const defaultPicture = `https://api.dicebear.com/9.x/thumbs/svg?seed=${username}`;
+          setProfilePicture(defaultPicture);
           if (showSettings) {
-            setSettingsForm(defaultValues);
+            setSettingsForm({ profilePicture: defaultPicture });
           }
         }
       });
@@ -285,11 +290,10 @@ function App() {
   useEffect(() => {
     if (showSettings) {
       setSettingsForm({
-        displayName: displayName || username,
         profilePicture: profilePicture || `https://api.dicebear.com/9.x/thumbs/svg?seed=${username}`
       });
     }
-  }, [showSettings, displayName, profilePicture, username]);
+  }, [showSettings, profilePicture, username]);
 
   useEffect(() => {
     if (isLoggedIn) {
@@ -485,11 +489,6 @@ function App() {
     setNewChannelName(value);
   };
 
-  const handleDisplayNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setSettingsForm(prev => ({ ...prev, displayName: value }));
-  };
-
   const handleMessageChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setNewMessage(e.target.value);
   }, []);
@@ -501,7 +500,6 @@ function App() {
       const userProfile = gun.get('users').get(username);
       
       const updateData = {
-        displayName: settingsForm.displayName || username,
         profilePicture: settingsForm.profilePicture,
         lastUpdated: Date.now()
       };
@@ -518,7 +516,6 @@ function App() {
         });
       });
 
-      setDisplayName(updateData.displayName);
       setProfilePicture(updateData.profilePicture);
       setShowSettings(false);
     } catch (error) {
@@ -535,6 +532,70 @@ function App() {
         return;
       }
       setMediaFile(file);
+    }
+  };
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        alert('File too large. Please upload files under 5MB.');
+        return;
+      }
+
+      try {
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const img = new Image();
+            img.src = reader.result as string;
+            img.onload = () => {
+              const canvas = document.createElement('canvas');
+              const ctx = canvas.getContext('2d')!;
+              
+              let width = img.width;
+              let height = img.height;
+              const maxDimension = 1024;
+              
+              if (width > maxDimension || height > maxDimension) {
+                if (width > height) {
+                  height = (height / width) * maxDimension;
+                  width = maxDimension;
+                } else {
+                  width = (width / height) * maxDimension;
+                  height = maxDimension;
+                }
+              }
+              
+              canvas.width = width;
+              canvas.height = height;
+              ctx.drawImage(img, 0, 0, width, height);
+              
+              const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+              resolve(compressedBase64);
+            };
+            img.onerror = reject;
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+
+        const base64Data = base64.split(',')[1];
+        const byteCharacters = atob(base64Data);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: 'image/jpeg' });
+
+        const ipfsUrl = await uploadToPinata(blob);
+        setSettingsForm(prev => ({ ...prev, profilePicture: ipfsUrl }));
+        setAvatarFile(file);
+      } catch (error) {
+        console.error('Error processing avatar:', error);
+        alert('Failed to process avatar. Please try again.');
+      }
     }
   };
 
@@ -572,7 +633,7 @@ function App() {
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-discord-dark p-6 rounded-lg shadow-xl w-full max-w-md transform transition-all duration-200 scale-100 hover:scale-[1.02]">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-white">User Settings</h2>
+          <h2 className="text-2xl font-bold text-white">Change Avatar</h2>
           <button
             onClick={() => setShowSettings(false)}
             className="text-gray-400 hover:text-white transition-colors text-xl"
@@ -582,41 +643,33 @@ function App() {
         </div>
         <form onSubmit={handleProfileUpdate} className="space-y-6">
           <div className="flex flex-col items-center space-y-4">
-            <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+            <div 
+              className="relative group cursor-pointer transform transition-all duration-300 hover:scale-105" 
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <div className="absolute inset-0 bg-indigo-500 rounded-full opacity-0 group-hover:opacity-20 transition-opacity" />
               <img
                 src={settingsForm.profilePicture}
                 alt="Profile"
-                className="w-32 h-32 rounded-full group-hover:opacity-75 transition-all duration-200 ring-2 ring-indigo-500 ring-offset-2 ring-offset-discord-dark"
+                className="w-40 h-40 rounded-full transition-all duration-300 ring-4 ring-indigo-500 ring-offset-4 ring-offset-discord-dark group-hover:ring-indigo-400"
               />
               <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                <div className="bg-black bg-opacity-50 rounded-full p-2">
-                  <span className="text-white text-sm">Change Avatar</span>
+                <div className="bg-black bg-opacity-75 rounded-full px-4 py-2 transform -translate-y-2 group-hover:translate-y-0 transition-transform">
+                  <span className="text-white text-sm font-medium">Change Avatar</span>
                 </div>
               </div>
             </div>
             <input
               type="file"
               ref={fileInputRef}
-              onChange={handleFileUpload}
+              onChange={handleAvatarUpload}
               accept="image/*"
               className="hidden"
             />
           </div>
-          <div className="space-y-2">
-            <label className="text-sm text-gray-400 block">Display Name</label>
-            <input
-              type="text"
-              ref={displayNameInputRef}
-              value={settingsForm.displayName}
-              onChange={handleDisplayNameChange}
-              autoFocus
-              className="w-full px-4 py-2 rounded bg-discord-channel text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-              placeholder="Enter display name"
-            />
-          </div>
           <button
             type="submit"
-            className="w-full bg-indigo-600 text-white px-4 py-3 rounded hover:bg-indigo-700 transition-colors transform hover:scale-[1.02] duration-200 font-medium"
+            className="w-full bg-indigo-600 text-white px-4 py-3 rounded-lg hover:bg-indigo-700 transition-colors transform hover:scale-[1.02] duration-200 font-medium shadow-lg"
           >
             Save Changes
           </button>
@@ -680,41 +733,94 @@ function App() {
 
   if (!isLoggedIn) {
     return (
-      <div className="min-h-screen bg-[#202225] flex items-center justify-center p-4">
-        <div className="bg-discord-dark p-8 rounded-lg shadow-2xl w-full max-w-md transform transition-all hover:scale-105">
-          <h2 className="text-3xl font-bold text-white mb-6 text-center">DecentChat</h2>
-          <form onSubmit={(e) => handleAuth(e, true)} className="space-y-4">
-            <input
-              type="text"
-              placeholder="Username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="w-full px-4 py-2 rounded bg-discord-channel text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-            />
-            <input
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-2 rounded bg-discord-channel text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-            />
-            {loginError && <div className="text-red-500 text-sm">{loginError}</div>}
-            <div className="flex space-x-4">
-              <button
-                type="submit"
-                className="flex-1 bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 transition-colors"
-              >
-                Login
-              </button>
-              <button
-                type="button"
-                onClick={(e) => handleAuth(e, false)}
-                className="flex-1 bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700 transition-colors"
-              >
-                Sign Up
-              </button>
+      <div className="min-h-screen bg-discord-dark flex items-center justify-center p-4">
+        <div className="container mx-auto px-4 flex flex-col lg:flex-row items-center justify-between gap-12">
+          {/* Left side - Hero content */}
+          <div className="flex-1 text-center lg:text-left space-y-8">
+            <div className="relative inline-block">
+              <h1 className="text-6xl lg:text-8xl font-black tracking-tighter text-white">
+                Decent<span className="text-indigo-500">Chat</span>
+              </h1>
+              <div className="absolute -top-4 -right-4 w-8 h-8 bg-indigo-500 rounded-full opacity-50 animate-pulse"></div>
+              <div className="absolute -bottom-2 -left-2 w-4 h-4 bg-blue-500 rounded-full opacity-50 animate-ping"></div>
             </div>
-          </form>
+            
+            <p className="text-discord-text-muted text-lg max-w-lg leading-relaxed">
+              Experience next-generation messaging with military-grade encryption and decentralized infrastructure.
+            </p>
+
+            <div className="flex flex-wrap gap-6 justify-center lg:justify-start">
+              <div className="bg-discord-channel/30 backdrop-blur px-6 py-3 rounded-xl border border-indigo-500/20">
+                <div className="text-2xl font-bold text-white mb-1">100%</div>
+                <div className="text-sm text-discord-text-muted">Decentralized</div>
+              </div>
+              <div className="bg-discord-channel/30 backdrop-blur px-6 py-3 rounded-xl border border-indigo-500/20">
+                <div className="text-2xl font-bold text-white mb-1">E2EE</div>
+                <div className="text-sm text-discord-text-muted">Encrypted</div>
+              </div>
+              <div className="bg-discord-channel/30 backdrop-blur px-6 py-3 rounded-xl border border-indigo-500/20">
+                <div className="text-2xl font-bold text-white mb-1">P2P</div>
+                <div className="text-sm text-discord-text-muted">Architecture</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Right side - Auth form */}
+          <div className="w-full max-w-md">
+            <div className="bg-discord-channel p-8 rounded-xl border border-indigo-500/20 backdrop-blur-xl">
+              <div className="flex items-center justify-center mb-8">
+                <div className="relative">
+                  <div className="text-3xl font-bold text-white">Welcome Back</div>
+                  <div className="absolute -top-6 -right-6 w-12 h-12 bg-indigo-500/10 rounded-full"></div>
+                  <div className="absolute -bottom-4 -left-4 w-8 h-8 bg-blue-500/10 rounded-full"></div>
+                </div>
+              </div>
+              
+              <form onSubmit={(e) => handleAuth(e, true)} className="space-y-6">
+                <div>
+                  <input
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    className="w-full px-5 py-4 rounded-lg bg-discord-dark text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all border border-gray-800"
+                    placeholder="Username"
+                  />
+                </div>
+                
+                <div>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full px-5 py-4 rounded-lg bg-discord-dark text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all border border-gray-800"
+                    placeholder="Password"
+                  />
+                </div>
+
+                {loginError && (
+                  <div className="text-red-400 text-sm bg-red-500/5 p-4 rounded-lg border border-red-500/10">
+                    {loginError}
+                  </div>
+                )}
+
+                <div className="space-y-4 pt-2">
+                  <button
+                    type="submit"
+                    className="w-full bg-indigo-500 hover:bg-indigo-600 text-white px-5 py-4 rounded-lg font-medium transition-all duration-200"
+                  >
+                    Login
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => handleAuth(e, false)}
+                    className="w-full bg-discord-dark hover:bg-discord-channel text-white px-5 py-4 rounded-lg font-medium transition-all duration-200 border border-gray-800"
+                  >
+                    Create New Account
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -859,10 +965,17 @@ function App() {
       <div className="w-60 bg-discord-sidebar border-l border-gray-800 p-3">
         <div className="text-gray-400 text-sm uppercase font-semibold mb-4">Online Users — {onlineUsers.size}</div>
         <div className="space-y-2">
-          {Array.from(onlineUsers).map(user => (
-            <div key={user} className="flex items-center space-x-2 px-2 py-1 rounded hover:bg-discord-channel/50 transition-colors">
-              <div className="h-2 w-2 rounded-full bg-green-500"></div>
-              <span className="text-gray-300">{user}</span>
+          {Array.from(onlineUsers.values()).map(user => (
+            <div key={user.username} className="flex items-center space-x-2 px-2 py-1 rounded hover:bg-discord-channel/50 transition-colors">
+              <div className="relative">
+                <img 
+                  src={user.profilePicture} 
+                  alt={user.username}
+                  className="h-8 w-8 rounded-full bg-indigo-600"
+                />
+                <div className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-discord-sidebar"></div>
+              </div>
+              <span className="text-gray-300">{user.username}</span>
             </div>
           ))}
         </div>

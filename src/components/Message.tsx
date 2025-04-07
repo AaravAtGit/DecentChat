@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { IGunInstance, GunData } from '../types';
 
 interface MessageProps {
@@ -51,7 +52,11 @@ const Message = React.memo(({ message, gun, onImageClick }: MessageProps) => {
         </div>
         {message.type === 'media' ? (
           <>
-            {message.text && <p className="text-gray-300 mb-2">{message.text}</p>}
+            {message.text && (
+              <div className="text-gray-300 mb-2 prose prose-invert max-w-none">
+                <ReactMarkdown>{message.text}</ReactMarkdown>
+              </div>
+            )}
             <div className="relative group inline-block">
               <img 
                 src={message.content} 
@@ -62,7 +67,9 @@ const Message = React.memo(({ message, gun, onImageClick }: MessageProps) => {
             </div>
           </>
         ) : (
-          <p className="text-gray-300">{message.text}</p>
+          <div className="text-gray-300 prose prose-invert max-w-none">
+            <ReactMarkdown>{message.text || ''}</ReactMarkdown>
+          </div>
         )}
       </div>
     </div>

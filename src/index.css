@@ -3,15 +3,38 @@
 @tailwind utilities;
 
 :root {
-  --discord-dark: #1a1b1e;
-  --discord-sidebar: #232428;
+  /* Dark theme (default) */
+  --discord-dark: #171719;
+  --discord-sidebar: #1e1f22;
   --discord-channel: #2b2d31;
+  --discord-text: #ffffff;
+  --discord-text-muted: #949ba4;
+  --discord-primary: #5865f2;
+  --discord-primary-hover: #4752c4;
+  --discord-secondary: #4e5058;
+  --discord-secondary-hover: #6d6f78;
+  --discord-highlight: #3e4047;
+}
+
+/* Light theme (can be toggled with class) */
+.theme-light {
+  --discord-dark: #ffffff;
+  --discord-sidebar: #f2f3f5;
+  --discord-channel: #e3e5e8;
+  --discord-text: #2e3338;
+  --discord-text-muted: #747f8d;
+  --discord-primary: #5865f2;
+  --discord-primary-hover: #4752c4;
+  --discord-secondary: #e3e5e8;
+  --discord-secondary-hover: #d4d7dc;
+  --discord-highlight: #caccce;
 }
 
 body {
   margin: 0;
   min-height: 100vh;
   background-color: var(--discord-dark);
+  color: var(--discord-text);
 }
 
 /* Smooth scrollbar */
@@ -24,10 +47,45 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--discord-channel);
+  background: var(--discord-highlight);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #4a4d52;
+  background: var(--discord-secondary-hover);
+}
+
+@keyframes blob {
+  0% {
+    transform: translate(0px, 0px) scale(1);
+  }
+  33% {
+    transform: translate(30px, -50px) scale(1.2);
+  }
+  66% {
+    transform: translate(-20px, 20px) scale(0.8);
+  }
+  100% {
+    transform: translate(0px, 0px) scale(1);
+  }
+}
+
+.animate-blob {
+  animation: blob 7s infinite;
+}
+
+.animation-delay-2000 {
+  animation-delay: 2s;
+}
+
+.animation-delay-4000 {
+  animation-delay: 4s;
+}
+
+/* Add gradient text support for Firefox */
+@supports (-moz-appearance: none) {
+  .bg-clip-text {
+    -webkit-background-clip: text;
+    background-clip: text;
+  }
 }
