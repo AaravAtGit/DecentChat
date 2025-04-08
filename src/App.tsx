@@ -138,6 +138,9 @@ function App() {
   const [enlargedImage, setEnlargedImage] = useState<string | null>(null);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
 
+  const [showMobileChannels, setShowMobileChannels] = useState(false);
+  const [showMobileUsers, setShowMobileUsers] = useState(false);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -746,7 +749,7 @@ function App() {
             </div>
             
             <p className="text-discord-text-muted text-lg max-w-lg leading-relaxed">
-              Experience next-generation messaging with military-grade encryption and decentralized infrastructure.
+              Experience next-generation messaging with military-grade encryption and decentralized infrastructure. /s
             </p>
 
             <div className="flex flex-wrap gap-6 justify-center lg:justify-start">
@@ -770,7 +773,7 @@ function App() {
             <div className="bg-discord-channel p-8 rounded-xl border border-indigo-500/20 backdrop-blur-xl">
               <div className="flex items-center justify-center mb-8">
                 <div className="relative">
-                  <div className="text-3xl font-bold text-white">Welcome Back</div>
+                  <div className="text-3xl font-bold text-white">Welcome!</div>
                   <div className="absolute -top-6 -right-6 w-12 h-12 bg-indigo-500/10 rounded-full"></div>
                   <div className="absolute -bottom-4 -left-4 w-8 h-8 bg-blue-500/10 rounded-full"></div>
                 </div>
@@ -832,69 +835,101 @@ function App() {
       {showNewChannelModal && <NewChannelModal />}
       {enlargedImage && <ImageModal />}
       
-      <div className="w-16 bg-[#202225] p-3 space-y-2">
-        <div className="h-12 w-12 rounded-2xl bg-indigo-600 hover:bg-indigo-500 cursor-pointer transition-all duration-200 hover:rounded-xl flex items-center justify-center text-2xl font-bold">
+      {/* Mobile menu buttons - add at the top of the chat interface */}
+      <div className="sm:hidden fixed top-0 left-0 right-0 h-12 bg-[#202225] flex items-center justify-between px-4 z-20">
+        <button
+          onClick={() => setShowMobileChannels(prev => !prev)}
+          className="p-2 text-gray-400 hover:text-white"
+        >
+          ☰
+        </button>
+        <span className="font-medium">#{currentChannel}</span>
+        <button
+          onClick={() => setShowMobileUsers(prev => !prev)}
+          className="p-2 text-gray-400 hover:text-white"
+        >
+          👥
+        </button>
+      </div>
+
+      {/* Update the server sidebar */}
+      <div className="w-16 bg-[#202225] p-3 space-y-2 hidden sm:block">
+        <div className="h-12 w-12 rounded-2xl bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 cursor-pointer transition-all duration-200 hover:rounded-xl flex items-center justify-center font-black text-2xl text-white">
           D
         </div>
       </div>
 
-      <div className="w-60 bg-discord-sidebar p-3">
-        <div className="text-lg font-bold mb-4 flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <span className="text-indigo-400">DecentChat</span>
-            <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></div>
+      {/* Update the channels sidebar - make it toggleable on mobile */}
+      <div className={`w-60 bg-discord-sidebar p-3 fixed sm:static inset-y-0 left-0 z-10 transform transition-transform duration-200 ease-in-out ${
+        showMobileChannels ? 'translate-x-0' : '-translate-x-full sm:translate-x-0'
+      }`}>
+        <div className="mb-6">
+          <div className="relative inline-block">
+            <h1 className="text-xl font-black tracking-tighter">
+              Decent<span className="text-indigo-500">Chat</span>
+            </h1>
+            <div className="absolute -top-1 -right-1 w-2 h-2 bg-indigo-500 rounded-full opacity-50 animate-pulse"></div>
           </div>
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={() => setShowSettings(true)}
-              className="text-gray-400 hover:text-white transition-colors"
-            >
-              ⚙️
-            </button>
-            <button
-              onClick={handleLogout}
-              className="text-sm text-gray-400 hover:text-red-400 transition-colors"
-            >
-              Logout
-            </button>
+          <div className="flex items-center justify-between mt-4">
+            <div className="flex items-center space-x-2">
+              <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></div>
+              <span className="text-sm text-discord-text-muted">Online</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => setShowSettings(true)}
+                className="p-2 rounded hover:bg-discord-channel/50 text-gray-400 hover:text-white transition-colors"
+              >
+                ⚙️
+              </button>
+              <button
+                onClick={handleLogout}
+                className="p-2 rounded hover:bg-discord-channel/50 text-sm text-gray-400 hover:text-red-400 transition-colors"
+              >
+                Logout
+              </button>
+            </div>
           </div>
         </div>
         
         <div className="space-y-4">
-          <div className="flex items-center justify-between text-gray-400 text-sm">
-            <span className="uppercase font-semibold">Text Channels</span>
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-discord-text-muted uppercase tracking-wider">Text Channels</span>
             <button
               onClick={() => setShowNewChannelModal(true)}
-              className="hover:text-white transition-colors text-xl"
+              className="p-1 hover:bg-discord-channel/50 rounded transition-colors text-gray-400 hover:text-white"
               title="Create Channel"
             >
-              +
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
             </button>
           </div>
-          <div className="space-y-1">
+          <div className="space-y-0.5">
             {channels.map(channel => (
               <div
                 key={channel}
-                className={`flex items-center space-x-1 cursor-pointer transition-colors px-2 py-1 rounded hover:bg-discord-channel/50 ${
+                className={`group flex items-center space-x-1 cursor-pointer transition-all px-2 py-1.5 rounded-md hover:bg-discord-channel/50 ${
                   channel === currentChannel 
                     ? 'bg-discord-channel text-white' 
                     : 'text-gray-400 hover:text-white'
                 }`}
                 onClick={() => setCurrentChannel(channel)}
               >
-                <span className="text-lg">#</span>
-                <span>{channel}</span>
+                <span className="text-lg opacity-60 group-hover:opacity-100">#</span>
+                <span className="text-sm truncate">{channel}</span>
               </div>
             ))}
           </div>
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col">
-        <div className="px-4 py-2 shadow-md bg-discord-dark border-b border-gray-800">
+      {/* Update the main chat area - add padding for mobile header */}
+      <div className="flex-1 flex flex-col pt-12 sm:pt-0">
+        <div className="px-4 py-3 shadow-lg bg-discord-dark border-b border-gray-800">
           <div className="flex items-center space-x-2">
-            <span className="text-lg text-gray-400">#</span>
-            <span className="font-semibold">{currentChannel}</span>
+            <span className="text-xl text-gray-400 opacity-60">#</span>
+            <span className="font-medium">{currentChannel}</span>
           </div>
         </div>
 
@@ -910,12 +945,12 @@ function App() {
           <div ref={messagesEndRef} />
         </div>
 
-        <form onSubmit={sendMessage} className="p-4 bg-discord-sidebar">
+        <form onSubmit={sendMessage} className="p-4 bg-discord-dark border-t border-gray-800">
           <div className="flex items-center space-x-2">
             <button
               type="button"
               onClick={() => mediaInputRef.current?.click()}
-              className="p-3 rounded-lg bg-discord-channel text-gray-400 hover:text-white hover:bg-discord-channel/50 transition-colors"
+              className="p-3 rounded-lg bg-discord-channel text-gray-400 hover:text-white hover:bg-discord-channel/70 transition-colors"
               title="Upload Media"
             >
               📎
@@ -926,7 +961,7 @@ function App() {
               value={newMessage}
               onChange={handleMessageChange}
               placeholder={`Message #${currentChannel}`}
-              className="flex-1 px-4 py-3 rounded-lg bg-discord-channel text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+              className="flex-1 px-4 py-3 rounded-lg bg-discord-channel text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all border border-gray-800"
             />
             <input
               type="file"
@@ -937,7 +972,7 @@ function App() {
             />
             <button
               type="submit"
-              className="p-3 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
+              className="px-4 py-3 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white transition-colors font-medium"
             >
               Send
             </button>
@@ -962,24 +997,42 @@ function App() {
         </form>
       </div>
 
-      <div className="w-60 bg-discord-sidebar border-l border-gray-800 p-3">
-        <div className="text-gray-400 text-sm uppercase font-semibold mb-4">Online Users — {onlineUsers.size}</div>
-        <div className="space-y-2">
+      {/* Update the users sidebar - make it toggleable on mobile */}
+      <div className={`w-60 bg-discord-sidebar border-l border-gray-800 p-3 fixed sm:static inset-y-0 right-0 z-10 transform transition-transform duration-200 ease-in-out ${
+        showMobileUsers ? 'translate-x-0' : 'translate-x-full sm:translate-x-0'
+      }`}>
+        <div className="flex items-center justify-between mb-4">
+          <span className="text-xs font-semibold text-discord-text-muted uppercase tracking-wider">
+            Online — {onlineUsers.size}
+          </span>
+        </div>
+        <div className="space-y-0.5">
           {Array.from(onlineUsers.values()).map(user => (
-            <div key={user.username} className="flex items-center space-x-2 px-2 py-1 rounded hover:bg-discord-channel/50 transition-colors">
+            <div key={user.username} className="flex items-center space-x-2 px-2 py-1.5 rounded-md hover:bg-discord-channel/50 transition-colors">
               <div className="relative">
                 <img 
                   src={user.profilePicture} 
                   alt={user.username}
-                  className="h-8 w-8 rounded-full bg-indigo-600"
+                  className="h-8 w-8 rounded-full bg-indigo-600/10 border border-indigo-500/20"
                 />
                 <div className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-discord-sidebar"></div>
               </div>
-              <span className="text-gray-300">{user.username}</span>
+              <span className="text-sm text-gray-300">{user.username}</span>
             </div>
           ))}
         </div>
       </div>
+
+      {/* Add backdrop for mobile menus */}
+      {(showMobileChannels || showMobileUsers) && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-0 sm:hidden"
+          onClick={() => {
+            setShowMobileChannels(false);
+            setShowMobileUsers(false);
+          }}
+        />
+      )}
     </div>
   );
 }
