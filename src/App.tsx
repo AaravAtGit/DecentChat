@@ -42,6 +42,7 @@ interface IGunInstance<T = GunData> {
   get: (key: string) => IGunInstance<T>;
   put: (data: Partial<T>, cb?: (ack: GunAck) => void) => IGunInstance<T>;
   on: (cb: (data: T | null, key: string) => void) => { off: () => void };
+  once?: (cb: (data: T | null, key?: string) => void) => void;
   map: () => IGunInstance<T>;
   user: () => GunUser;
 }
@@ -50,18 +51,6 @@ interface GunUser {
   create: (username: string, password: string, cb: (ack: GunAck) => void) => void;
   auth: (usernameOrPair: string | object, password?: string, cb?: (ack: GunAuthAck) => void) => void;
   leave: () => void;
-}
-
-interface MessageProps {
-  message: {
-    id: string;
-    type?: 'text' | 'media';
-    text?: string;
-    content?: string;
-    sender: string;
-    timestamp: number;
-  };
-  gun: IGunInstance<GunData>;
 }
 
 interface MessageData {
@@ -136,7 +125,6 @@ function App() {
   const [mediaFile, setMediaFile] = useState<File | null>(null);
   const mediaInputRef = useRef<HTMLInputElement>(null);
   const [enlargedImage, setEnlargedImage] = useState<string | null>(null);
-  const [avatarFile, setAvatarFile] = useState<File | null>(null);
 
   const [showMobileChannels, setShowMobileChannels] = useState(false);
   const [showMobileUsers, setShowMobileUsers] = useState(false);
@@ -215,8 +203,8 @@ function App() {
       const isRecent = Date.now() - lastSeen < 30000;
 
       if (data.online && isRecent) {
-        // Get user profile picture
-        gun.get('users').get(userId).once((userData) => {
+        // Get user profile picture with type safety
+        gun.get('users').get(userId).once?.((userData: GunData | null) => {
           setOnlineUsers(prev => {
             const next = new Map(prev);
             next.set(userId, {
@@ -385,7 +373,7 @@ function App() {
     setIsLoggedIn(false);
     setUsername('');
     setPassword('');
-    setOnlineUsers(new Set());
+    setOnlineUsers(new Map());
     user.leave();
   };
 
@@ -527,17 +515,6 @@ function App() {
     }
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        alert('File too large. Please upload files under 5MB.');
-        return;
-      }
-      setMediaFile(file);
-    }
-  };
-
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -594,7 +571,6 @@ function App() {
 
         const ipfsUrl = await uploadToPinata(blob);
         setSettingsForm(prev => ({ ...prev, profilePicture: ipfsUrl }));
-        setAvatarFile(file);
       } catch (error) {
         console.error('Error processing avatar:', error);
         alert('Failed to process avatar. Please try again.');
