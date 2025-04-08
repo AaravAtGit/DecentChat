@@ -93,10 +93,6 @@ The application uses IPFS (InterPlanetary File System) for storing media files:
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the GNU GENERAL PUBLIC LICENSE - see the [LICENSE](LICENSE) file for details.
 
-## Contact
 
-Your Name - [@yourusername](https://twitter.com/yourusername)
-
-Project Link: [https://github.com/yourusername/DecentChat](https://github.com/yourusername/DecentChat)
